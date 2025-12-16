@@ -1,0 +1,14 @@
+services:
+  creator-remote-lab:
+    build:
+      context: .
+      target: prod
+    volumes:
+      - ./config:/app/config
+      - ./results:/app/results
+    ports:
+      - "5000:5000"
+    environment:
+      - DEPLOYMENT=deployment.json
+      - EMAIL=test@inf.uc3m.es
+      - PASSW=changeme

@@ -1,48 +1,66 @@
-
-FROM ubuntu:24.04
-
-ENV TZ=Europe/Madrid
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-EXPOSE 5000
-
-WORKDIR /
-
-RUN apt update && apt-get install -y \
-        sudo \
-        wget \
-        curl \
-        lynx \
-        git \
-        vim \
-        aha \
-        7zip \
-        unrar \
-        zip \
-        unzip
-
-RUN apt update && apt-get install -y \
-        nodejs \
-        npm
-
-#Hardware lab dependencies install
-RUN apt update && apt-get install -y \
-        python3 \
-        python3-pip \
-        python3-venv
-
-RUN pip3 --no-cache install flask flask_cors requests --break-system-packages
+# stolen from: https://github.com/timvancann/timnology-youtube/tree/main/videos/scalable-python-api
 
 
-#Download CREATOR
-RUN git clone https://github.com/creatorsim/creator.git && \
-    cd creator && \
-    npm install terser jshint colors yargs readline-sync && \
-    ./mk_min.sh
+# --- Stage 1: Base Setup (Alpine) ---
+FROM python:3.13-alpine AS python_base
 
-RUN ln -s /creator/remote_lab/deployment.json deployment.json
+# Python optimizations
+ENV PYTHONUNBUFFERED=1
+ENV UV_COMPILE_BYTECODE=1
+
+WORKDIR /app
 
 
-#Run web service
-COPY start_remote_lab.sh .
-CMD ["/usr/bin/sleep","infinity"]
+# --- Stage 2: Builder ---
+FROM python_base AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
+
+COPY pyproject.toml uv.lock ./
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev
+
+
+# --- Stage 3: Dev Environment ---
+FROM python_base AS dev
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Add common debug tools for local troubleshooting
+RUN apk add --no-cache \
+    curl \
+    git \
+    vim \
+    wget \
+    bind-tools \
+    netcat-openbsd \
+    procps
+
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app/src"
+
+COPY pyproject.toml uv.lock ./
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project
+
+CMD ["flask", "--app", "src/app.py", "run", "--host", "0.0.0.0", "--port", "5000", "--debug"]
+
+
+# --- Stage 4: Production (The Tiny Image) ---
+FROM python_base AS prod
+
+RUN addgroup -S appuser && adduser -S appuser -G appuser -h /app
+USER appuser
+
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+COPY src ./src
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app/src"
+
+CMD ["flask", "--app", "src/app.py", "run", "--host", "0.0.0.0", "--port", "5000"]
