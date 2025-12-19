@@ -139,6 +139,7 @@ def worker(item):
                 "assembly": ret["asm_code"],
             }
 
+            print(f"Sent job to {url}")
             res = requests.post(url, json=msg)
             jres = res.json()
 
