@@ -6,6 +6,7 @@ on:
       - "main"
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   push_to_registries:
@@ -42,7 +43,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            rajayonin/creator-remote-lab
+            creatorsim/creator-remote-lab
             ghcr.io/${{ github.repository }}
           tags: |
             # set latest tag for default branch
