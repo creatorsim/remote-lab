@@ -52,9 +52,6 @@ CMD ["flask", "--app", "src/app.py", "run", "--host", "0.0.0.0", "--port", "5000
 # --- Stage 4: Production (The Tiny Image) ---
 FROM python_base AS prod
 
-RUN addgroup -S appuser && adduser -S appuser -G appuser -h /app
-USER appuser
-
 WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv

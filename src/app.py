@@ -20,6 +20,7 @@
 
 
 import os
+import getpass
 import sys
 import json
 import threading
@@ -224,6 +225,9 @@ else:
 # check for result directory
 if not os.path.isdir("results"):
     sys.exit("Unable to find results/ folder. Make sure it exists.")
+
+if not os.access("results", os.W_OK):
+    sys.exit(f"Unable to write to the results/ folder due to file permissions. User: '{getpass.getuser()}' (EUID {os.geteuid()})")
 
 
 # Queue management
